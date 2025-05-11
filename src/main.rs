@@ -84,7 +84,7 @@ fn main() {
         for ((bus, address), device_info) in &current_devices {
             if !previous_devices.contains_key(&(*bus, *address)) {
                 let detection = def_analysis_voltage_and_speed(device_info.max_power_ma, device_info.speed);
-                let _kernel_detection= def_check_kernel_logs(current_os);
+                let (kernel_message, suspicious_flags) = def_check_kernel_logs(current_os);
                 println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                 println!("📌 New USB device connected:");
                 println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -120,6 +120,13 @@ fn main() {
                 println!("Detection Result:");
 
                 println!("Voltage and Speed Detection:  {}", detection);
+                println!("Kernel Log Check:            {}", kernel_message);
+                if !suspicious_flags.is_empty() {
+                    println!("⚠️ WARNINGS:");
+                    for flag in suspicious_flags {
+                        println!("  {}", flag);
+                    }
+                }
             }
         }
 
@@ -258,38 +265,114 @@ fn def_analysis_voltage_and_speed(voltage: u16, speed: u32) -> &'static str {
     }
 }
 
-fn def_check_kernel_logs(operating_system: &str) -> &'static str {
+fn def_check_kernel_logs(operating_system: &str) -> (&'static str, Vec<String>) {
     match operating_system {
         "Linux" => {
             println!("Checking kernel logs for Linux...");
-            match std::process::Command::new("sh")
-                .arg("-c")
+            match std::process::Command::new("sudo")
                 .arg("dmesg")
+                .arg("-c")
                 .output() 
             {
                 Ok(output) => {
-                    // Even if grep doesn't find anything, the command itself succeeds
                     let log_output = String::from_utf8_lossy(&output.stdout);
-                    if !log_output.trim().is_empty() {
-                        println!("🔍 Recent USB events found in kernel logs:");
-                        for line in log_output.lines().take(10) {
-                            println!("  • {}", line);
+                    if !log_output.is_empty() {
+                        
+                        // Define suspicious keywords array OUTSIDE the loops so it can be used throughout the function
+                        let suspicious_keywords = [
+                            "with sunxi_usb_udc", "device reset occurred"
+                        ];
+                        
+                        // Collect suspicious findings from raw logs
+                        let mut suspicious_flags = Vec::new();
+                        
+                        // Display raw logs (limited to 40 lines)
+                        for line in log_output.lines().take(40) {
+                            // Check for suspicious keywords in the raw log lines
+                            for keyword in &suspicious_keywords {
+                                if line.to_lowercase().contains(&keyword.to_lowercase()) {
+                                    suspicious_flags.push(format!("⚠️ Suspicious keyword '{}' found in raw log: {}", keyword, line));
+                                }
+                            }
                         }
-                        "USB events detected in kernel logs"
+                        
+                        // Extract device information from logs
+                        let mut device_info = HashMap::new();
+                        let mut current_device = String::new();
+                        
+                        for line in log_output.lines() {
+                            // New USB device detection
+                            if line.contains("new") && line.contains("USB device number") {
+                                if let Some(location) = line.split(": ").next() {
+                                    current_device = location.trim().to_string();
+                                }
+                            }
+                            
+                            // Get vendor/product ID
+                            if line.contains("idVendor=") && line.contains("idProduct=") {
+                                if !current_device.is_empty() {
+                                    device_info.insert(format!("{}_ids", current_device), line.to_string());
+                                }
+                            }
+                            
+                            // Get manufacturer/product/serial
+                            if line.contains("Manufacturer:") || line.contains("Product:") || line.contains("SerialNumber:") {
+                                if !current_device.is_empty() {
+                                    let key = if line.contains("Manufacturer:") { "manufacturer" } 
+                                        else if line.contains("Product:") { "product" } 
+                                        else { "serial" };
+                                    device_info.insert(format!("{}_{}", current_device, key), line.to_string());
+                                }
+                            }
+                        }
+                        
+                        // Print the extracted information if any
+                        if !device_info.is_empty() {
+                            println!("\n📝 Extracted device information from kernel logs:");
+                            
+                            for (key, value) in device_info.iter() {
+                                println!("  • {}: {}", key, value);
+                                
+                                // Check for suspicious keywords in the device info
+                                for keyword in &suspicious_keywords {
+                                    if value.to_lowercase().contains(&keyword.to_lowercase()) {
+                                        suspicious_flags.push(format!("⚠️ Suspicious keyword '{}' found in: {}", keyword, value));
+                                    }
+                                }
+                            }
+                            
+                            // Report any suspicious findings
+                            if !suspicious_flags.is_empty() {
+                                ("Suspicious USB device detected in kernel logs!", suspicious_flags)
+                            } else {
+                                ("No suspicious signs of usb", suspicious_flags)
+                            }
+                        } else {
+                            // Even if no device info was extracted, we might have raw log findings
+                            if !suspicious_flags.is_empty() {
+                                println!("\n🚨 SUSPICIOUS ACTIVITY DETECTED IN LOGS:");
+                                for flag in &suspicious_flags {
+                                    println!("  {}", flag);
+                                }
+                                ("Suspicious USB activity detected in kernel logs!", suspicious_flags)
+                            } else {
+                                ("USB events detected but no device information extracted", Vec::new())
+                            }
+                        }
                     } else {
-                        "No USB events found in recent kernel logs"
+                        ("No USB events found in recent kernel logs", Vec::new())
                     }
                 }
-                Err(_) => "Failed to execute dmesg command"
+                Err(_) => ("Failed to execute dmesg command", Vec::new())
             }
         }    
         "macOS" => {
             println!("Checking system logs for macOS...");
-            "System logs checked for macOS"
+            ("System logs checked for macOS", Vec::new())
         }    
         _ => {
             println!("Unsupported operating system for kernel log checking.");
-            "Unsupported OS for log checking"
+            ("Unsupported OS for log checking", Vec::new())
         }
     }
 }
