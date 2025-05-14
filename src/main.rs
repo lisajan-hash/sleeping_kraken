@@ -201,42 +201,49 @@ fn get_device_info<T: UsbContext>(
     };
     
     // Open the device to read string descriptors
-    if let Ok(handle) = device.open() {
-        // Get the first language ID
-        if let Ok(languages) = handle.read_languages(timeout) {
-            if let Some(language) = languages.first() {
-                if let Some(_manuf_index) = device_desc.manufacturer_string_index() {
-                    manufacturer = handle
-                        .read_manufacturer_string(*language, device_desc, timeout)
-                        .unwrap_or_else(|_| String::new());
-                }
+    match device.open() {
+        Ok(handle) => {
+            // Successfully opened device, proceed to read string descriptors
+            // Get the first language ID
+            if let Ok(languages) = handle.read_languages(timeout) {
+                if let Some(language) = languages.first() {
+                    if let Some(_manuf_index) = device_desc.manufacturer_string_index() {
+                        manufacturer = handle
+                            .read_manufacturer_string(*language, device_desc, timeout)
+                            .unwrap_or_else(|_| String::new());
+                    }
 
-                if let Some(_prod_index) = device_desc.product_string_index() {
-                    product_name = handle
-                        .read_product_string(*language, device_desc, timeout)
-                        .unwrap_or_else(|_| String::new());
-                }
+                    if let Some(_prod_index) = device_desc.product_string_index() {
+                        product_name = handle
+                            .read_product_string(*language, device_desc, timeout)
+                            .unwrap_or_else(|_| String::new());
+                    }
 
-                if let Some(_serial_index) = device_desc.serial_number_string_index() {
-                    serial_number = handle
-                        .read_serial_number_string(*language, device_desc, timeout)
-                        .unwrap_or_else(|_| String::new());
+                    if let Some(_serial_index) = device_desc.serial_number_string_index() {
+                        serial_number = handle
+                            .read_serial_number_string(*language, device_desc, timeout)
+                            .unwrap_or_else(|_| String::new());
+                    }
                 }
             }
         }
-
-        // Get power information from configuration descriptor
-        if let Ok(config) = device.config_descriptor(0) {
-            // USB power is reported in units of 2mA for low/full speed,
-            // or in units of 8mA for high-speed or newer
-            let power_units = config.max_power();
-            
-            // For USB 2.0 and earlier, power is in 2mA units
-            // For USB 3.0+, power is in 8mA units
-            // We would need to check the device speed to determine which,
-            // but as a simplification, we'll use 2mA units
-            max_power_ma = power_units as u16 * 2;
+        Err(_) => {
+            // Could not open device (likely due to permissions or device busy)
+            // Leave manufacturer, product_name, and serial_number as empty strings
         }
+    }
+
+    // Get power information from configuration descriptor (does not require open)
+    if let Ok(config) = device.config_descriptor(0) {
+        // USB power is reported in units of 2mA for low/full speed,
+        // or in units of 8mA for high-speed or newer
+        let power_units = config.max_power();
+        
+        // For USB 2.0 and earlier, power is in 2mA units
+        // For USB 3.0+, power is in 8mA units
+        // We would need to check the device speed to determine which,
+        // but as a simplification, we'll use 2mA units
+        max_power_ma = power_units as u16;
     }
 
     UsbDeviceInfo {
@@ -257,7 +264,7 @@ fn get_device_info<T: UsbContext>(
 
 fn def_analysis_voltage_and_speed(voltage: u16, speed: u32) -> &'static str {
     // Placeholder for analysis logic
-    if (voltage < 20 && speed > 400) || (voltage > 400 && speed > 10 && speed < 25) {
+    if (voltage < 20 && speed > 400) || (voltage > 400 && speed > 10 && speed < 25) || (voltage >= 200 && speed < 2) || (voltage == 100 && speed < 2) {
         "Detection of implantable devices: High confidence"
     } else {
         // Default case needed to handle all possible input combinations
