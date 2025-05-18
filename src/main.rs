@@ -33,7 +33,7 @@ fn check_os_compatibility() -> (bool, &'static str) {
         },
         "macOS" => {
             println!("✅ Running on macOS - full functionality available");
-            // Note: On macOS, you might need special permissions for USB access
+            // On macOS, you might need special permissions for USB access
             println!("ℹ️ Note: USB device access on macOS may require additional permissions");
             (true, "macOS")
         },
@@ -174,13 +174,13 @@ fn get_device_info<T: UsbContext>(
     let vendor_id = device_desc.vendor_id();
     let product_id = device_desc.product_id();
     
-    // Get device class information
+   
     let device_class = device_desc.class_code();
     let device_subclass = device_desc.sub_class_code();
     let device_protocol = device_desc.protocol_code();
     let num_configurations = device_desc.num_configurations();
     
-    // Get string descriptors (manufacturer, product, serial)
+    
     let timeout = Duration::from_secs(1);
     
     let mut manufacturer = String::new();
@@ -190,7 +190,7 @@ fn get_device_info<T: UsbContext>(
     
     
 
-    // Get device speed - show only the speed value
+    
     let speed = match device.speed() {
         Speed::Low => 1,
         Speed::Full => 12,
@@ -200,11 +200,10 @@ fn get_device_info<T: UsbContext>(
         _ => 0, // Unknown speed
     };
     
-    // Open the device to read string descriptors
+    
     match device.open() {
         Ok(handle) => {
             // Successfully opened device, proceed to read string descriptors
-            // Get the first language ID
             if let Ok(languages) = handle.read_languages(timeout) {
                 if let Some(language) = languages.first() {
                     if let Some(_manuf_index) = device_desc.manufacturer_string_index() {
@@ -229,20 +228,13 @@ fn get_device_info<T: UsbContext>(
         }
         Err(_) => {
             // Could not open device (likely due to permissions or device busy)
-            // Leave manufacturer, product_name, and serial_number as empty strings
         }
     }
 
     // Get power information from configuration descriptor (does not require open)
     if let Ok(config) = device.config_descriptor(0) {
-        // USB power is reported in units of 2mA for low/full speed,
-        // or in units of 8mA for high-speed or newer
         let power_units = config.max_power();
         
-        // For USB 2.0 and earlier, power is in 2mA units
-        // For USB 3.0+, power is in 8mA units
-        // We would need to check the device speed to determine which,
-        // but as a simplification, we'll use 2mA units
         max_power_ma = power_units as u16;
     }
 
@@ -287,7 +279,7 @@ fn def_check_kernel_logs(operating_system: &str) -> (&'static str, Vec<String>) 
                         
                         // Define suspicious keywords array OUTSIDE the loops so it can be used throughout the function
                         let suspicious_keywords = [
-                            "with sunxi_usb_udc", "device reset occurred"
+                            "with sunxi_usb_udc", "device reset occurred", "Mfr=0, Product=0"
                         ];
                         
                         // Collect suspicious findings from raw logs
