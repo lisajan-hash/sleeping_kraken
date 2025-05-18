@@ -256,7 +256,7 @@ fn get_device_info<T: UsbContext>(
 
 fn def_analysis_voltage_and_speed(voltage: u16, speed: u32) -> &'static str {
     // Placeholder for analysis logic
-    if (voltage < 20 && speed > 400) || (voltage > 400 && speed > 10 && speed < 25) || (voltage >= 200 && speed < 2) || (voltage == 100 && speed < 2) {
+    if (voltage < 10 && speed > 400) || (voltage > 481 && speed > 10 && speed < 25) || (voltage >= 200 && speed < 2) || (voltage == 100 && speed < 2) {
         "Detection of implantable devices: High confidence"
     } else {
         // Default case needed to handle all possible input combinations
