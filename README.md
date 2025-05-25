@@ -23,7 +23,7 @@ USB implant detection tool
 1. Ensure you have [Rust](https://www.rust-lang.org/tools/install) installed.
 2. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/sleeping_kraken.git
+    git clone https://github.com/lisajan-hash/sleeping_kraken.git
     cd sleeping_kraken
     ```
 3. Build the project:
