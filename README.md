@@ -34,7 +34,12 @@ USB implant detection tool
     ```sh
     sudo ./target/release/sleeping_kraken
     ```
-
+    
+4. Detection Configuration:
+    ```sh
+    MaxPower and Voltage Configuration: function (def_analysis_voltage_and_speed)
+    Kernel logs detection: variable suspicious_keywords
+    ```
 ## Disclaimer
 
 This project is for research and educational purposes only. Use responsibly and in accordance with local laws and regulations.
