@@ -37,7 +37,7 @@ USB implant detection tool
     
 4. Detection Configuration:
     ```sh
-    MaxPower and Voltage Configuration: function (def_analysis_voltage_and_speed)
+    MaxPower and Voltage Configuration: function def_analysis_voltage_and_speed
     Kernel logs detection: variable suspicious_keywords
     ```
 ## Disclaimer
